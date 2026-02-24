@@ -10,11 +10,8 @@ struct ContentView: View {
             // First Tab - Dashboard
             NavigationStack {
                 mainDashboardView
-                    .navigationTitle("Dashboard")
-                    .navigationBarTitleDisplayMode(.large)
-                    .toolbarBackground(Color(hex: "#f0a89e"), for: .navigationBar)
-                    .toolbarBackground(.visible, for: .navigationBar)
             }
+            .background(Color(hex: "#FDEDEB"))
             .tabItem {
                 Label("Dashboard", systemImage: "house")
             }
@@ -35,13 +32,32 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .toolbarBackground(Color(hex: "#f0a89e"), for: .navigationBar)
-                    .toolbarBackground(.visible, for: .navigationBar)
             }
             .tabItem {
                 Label("Info", systemImage: "star.fill")
             }
             .tag(1)
+            
+            // Third Tab - Support Quest
+            NavigationStack {
+                QuestHomeView()
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: {
+                                selectedTab = 0
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                    Text("Dashboard")
+                                }
+                            }
+                        }
+                    }
+            }
+            .tabItem {
+                Label("Quest", systemImage: "leaf.fill")
+            }
+            .tag(2)
         }
         .animation(.easeInOut(duration: 0.3), value: selectedTab)
     }
@@ -49,39 +65,35 @@ struct ContentView: View {
     // Dashboard View
     private var mainDashboardView: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                CycleCalendarView()
+                VStack(spacing: 20) {
+                    CycleCalendarView()
+                        .padding(.horizontal)
+                        .environmentObject(calendarViewModel)
+
+                    HStack(spacing: 15) {
+                        GeometryReader { geometry in
+                            MoodCardView(calendarViewModel: calendarViewModel)
+                                .frame(height: geometry.size.width)
+                        }
+                        GeometryReader { geometry in
+                            PainCardView(calendarViewModel: calendarViewModel)
+                                .frame(height: geometry.size.width)
+                        }
+                    }
+                    .frame(height: UIScreen.main.bounds.width / 2 - 25)
                     .padding(.horizontal)
-                    .environmentObject(calendarViewModel)
-                
-                HStack(spacing: 15) {
-                    GeometryReader { geometry in
-                        MoodCardView(calendarViewModel: calendarViewModel)
-                            .frame(height: geometry.size.width)
-                    }
-                    GeometryReader { geometry in
-                        PainCardView(calendarViewModel: calendarViewModel)
-                            .frame(height: geometry.size.width)
-                    }
-                }
-                .frame(height: UIScreen.main.bounds.width / 2 - 25)
-                .padding(.horizontal)
-                
-                if calendarViewModel.cycleStartDate != nil {
-                    
-                    if calendarViewModel.currentPhase == .menstruating {
-                        ThingsToDoView()
-                    }
-                    else {
-                        ReadinessCheckView()
+
+                    if calendarViewModel.cycleStartDate != nil {
+                        CarePlanView()
                             .frame(height: 350)
                             .padding(.horizontal)
                     }
                 }
+                .padding(.top, 8) // small breathing room
             }
-            .padding(.top)
-        }
-        .background(Color(hex: "#FDEDEB"))
+            .background(Color(hex: "#FDEDEB"))
+            .navigationTitle("Dashboard")
+            .navigationBarTitleDisplayMode(.large)
     }
 }
 
@@ -215,28 +227,18 @@ struct PainCardView: View {
     }
     
     private func getPainLevelText() -> String {
-        guard let cycleStartDate = calendarViewModel.cycleStartDate else { return "No Data" }
+        let level = calculatePainLevel()
         
-        let calendar = Calendar.current
-        let today = Date()
-        let daysSinceCycleStart = calendar.dateComponents([.day], from: cycleStartDate, to: today).day ?? 0
-        
-        
-        if daysSinceCycleStart >= 0 && daysSinceCycleStart <= 1 {
+        switch level {
+        case 0..<0.25:
+            return "No Pain"
+        case 0.25..<0.5:
+            return "Mild Pain"
+        case 0.5..<0.75:
+            return "Moderate Pain"
+        default:
             return "Severe Pain"
         }
-        
-
-        if daysSinceCycleStart >= -3 && daysSinceCycleStart <= -1 {
-            return "Mild Pain"
-        }
-        
-
-        if daysSinceCycleStart >= 2 && daysSinceCycleStart <= 5 {
-            return "Normal Pain"
-        }
-        
-        return "Normal Pain"
     }
     
     private var painLevelColor: Color {
@@ -338,57 +340,8 @@ struct PainLevelSlider: View {
     }
 }
 
-// Things To Do View
-struct ThingsToDoView: View {
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white)
-                .frame(height: 400)
-                .padding(.horizontal)
-                .shadow(radius: 2)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Things to do")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal)
-                    .padding(.top, 16)
-                    .padding(.leading)
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    ThingsToDo(icon: "heart.fill", text: "Reassure her with a warm hug")
-                    ThingsToDo(icon: "hand.raised.fill", text: "Validate Her Feelings")
-                    ThingsToDo(icon: "bubble.left.fill", text: "Encourage her to express herself")
-                    ThingsToDo(icon: "checklist", text: "Offer to help with daily tasks")
-                    ThingsToDo(icon: "house.fill", text: "Create a relaxing environment")
-                    ThingsToDo(icon: "ear.fill", text: "Listen to her concerns")
-                    ThingsToDo(icon: "heart.circle.fill", text: "Support her emotionally")
-                    ThingsToDo(icon: "person.fill", text: "Encourage self-care")
-                    ThingsToDo(icon: "star.fill", text: "Provide positive reinforcement")
-                    ThingsToDo(icon: "text.bubble.fill", text: "Offer words of encouragement")
-                    ThingsToDo(icon: "calendar", text: "Help her stay organized")
-                }
-                .padding(.horizontal)
-                .padding(.leading)
-            }
-        }
-    }
-}
 
-// Things To Do Item
-struct ThingsToDo: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.pink)
-                .font(.system(size: 16))
-            Text(text)
-                .font(.system(size: 16))
-                .foregroundColor(.gray)
-        }
-    }
+
+#Preview{
+    ContentView()
 }

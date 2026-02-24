@@ -28,10 +28,6 @@ struct FAQ: Identifiable {
     let answer: String
 }
 
-struct DoctorVisitIndicator: Identifiable {
-    let id = UUID()
-    let condition: String
-}
 
 struct View2: View {
     // feeding in the data in cards structure variable and setting and index to track the slideshow
@@ -77,15 +73,7 @@ struct View2: View {
             answer: "Exercise, heat therapy, over-the-counter pain medication, and staying hydrated can help manage period pain.")
     ]
     
-    // when to see your doctor data
-    private let doctorVisitIndicators = [
-        DoctorVisitIndicator(condition: "Their period patterns change"),
-        DoctorVisitIndicator(condition: "Their periods are getting heavier (i.e. they needs to change their pad or tampon more often than every 2 hours)"),
-        DoctorVisitIndicator(condition: "Periods last more than 8 days"),
-        DoctorVisitIndicator(condition: "Periods come less than 21 days apart"),
-        DoctorVisitIndicator(condition: "Periods come more than 2 to 3 months apart"),
-        DoctorVisitIndicator(condition: "Your partner bled after sexual intercourse")
-    ]
+
     
     //expanded states tracking
     @State private var expandedId: UUID?
@@ -198,42 +186,8 @@ struct View2: View {
                 .frame(minHeight: 310) // min height in collapsed state
                 .padding()
                 
-                ZStack(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 16)
-                        .foregroundStyle(Color.white)
-                        .shadow(radius: 5)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("When to see your doctor")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .padding(.top, 16)
-                            .padding(.leading, 20)
-                        
-                        Text("Talk to a doctor if you are worried about their periods. For example, if:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 20)
-                        
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(doctorVisitIndicators) { indicator in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        Text("•")
-                                            .foregroundColor(.primary)
-                                        Text(indicator.condition)
-                                            .font(.subheadline)
-                                            .foregroundColor(.primary)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                        }
-                    }
-                }
-                .frame(minHeight: 310)
-                .padding()
+                DoctorAssessmentView()
+                    .padding()
             }
         }
         .background(Color(hex: "#FDEDEB"))

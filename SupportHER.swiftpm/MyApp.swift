@@ -16,29 +16,37 @@ extension Color {
     }
 }
 
-
-
 @main
 struct MyApp: App {
     init() {
-            let appearance = UINavigationBarAppearance()
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = UIColor(Color(hex: "#F2A1A1"))
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-        
+        appearance.shadowColor = .clear
+
+        // Non-transparent scrollEdge appearance for large-title state
+        let scrollEdge = UINavigationBarAppearance()
+        scrollEdge.configureWithOpaqueBackground()
+        scrollEdge.backgroundColor = UIColor(Color(hex: "#F2A1A1"))
+        scrollEdge.titleTextAttributes = appearance.titleTextAttributes
+        scrollEdge.largeTitleTextAttributes = appearance.largeTitleTextAttributes
+        scrollEdge.shadowColor = .clear
+
         UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        
-        // Configure Tab Bar appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollEdge
+        UINavigationBar.appearance().compactAppearance = appearance
+        UINavigationBar.appearance().prefersLargeTitles = true
+        UINavigationBar.appearance().tintColor = .white
+
         let tabAppearance = UITabBarAppearance()
         tabAppearance.configureWithOpaqueBackground()
         tabAppearance.backgroundColor = UIColor.white.withAlphaComponent(0.7)
         tabAppearance.backgroundEffect = UIBlurEffect(style: .light)
-        
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
-        
-        }
+    }
     
     var body: some Scene {
         WindowGroup {
