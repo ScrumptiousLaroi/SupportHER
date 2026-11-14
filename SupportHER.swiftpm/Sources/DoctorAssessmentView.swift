@@ -2,49 +2,73 @@ import SwiftUI
 
 // MARK: - Data Models
 
+// Thresholds and tiers follow patient guidance from NHS and ACOG
+// (heavy periods, period pain, irregular periods, abnormal uterine bleeding).
+// Every question here is, on its own, a reason to see a doctor, so a single
+// "Yes" must never produce a reassuring result.
 struct AssessmentQuestion: Identifiable {
+    enum Severity {
+        case urgent   // should be checked the same day
+        case routine  // warrants a booked doctor visit
+    }
+
+    // Tags the two questions that together signal possible serious blood loss.
+    enum Kind {
+        case heavyBleeding
+        case fainting
+        case other
+    }
+
     let id = UUID()
     let question: String
-    let riskScore: Int // Weight when answered "Yes"
+    let summary: String // Short label shown under "What you reported"
+    let severity: Severity
+    var kind: Kind = .other
 }
 
 enum RiskLevel {
-    case low
-    case moderate
-    case high
-    
+    case noFlags
+    case routine
+    case urgent
+    case emergency
+
     var title: String {
         switch self {
-        case .low: return "Symptoms Seem Normal"
-        case .moderate: return "Consider a Doctor Visit"
-        case .high: return "Consult a Doctor Soon"
+        case .noFlags: return "No Warning Signs Flagged"
+        case .routine: return "Book a Doctor Visit"
+        case .urgent: return "Contact a Doctor Today"
+        case .emergency: return "Seek Emergency Care Now"
         }
     }
-    
+
     var message: String {
         switch self {
-        case .low:
-            return "Based on your responses, symptoms appear to be within normal range. Continue monitoring and refer to the Care Plan for support strategies."
-        case .moderate:
-            return "Some symptoms may warrant attention. Consider scheduling a routine doctor visit to discuss these changes with a healthcare provider."
-        case .high:
-            return "It would be wise to consult a doctor soon to discuss these symptoms. Professional medical evaluation can help ensure everything is okay."
+        case .noFlags:
+            return "None of these warning signs were reported. That does not rule out a problem. If she is worried or something feels wrong to her, a doctor visit is still reasonable."
+        case .routine:
+            return "This is not an emergency, but what you reported is worth discussing with a doctor. Help her book an appointment."
+        case .urgent:
+            return "What you reported should be checked the same day. Help her call her doctor or an urgent care line today."
+        case .emergency:
+            return "Very heavy bleeding together with fainting or dizziness can mean serious blood loss. Get emergency care now. Do not wait for an appointment."
         }
     }
-    
+
     var icon: String {
         switch self {
-        case .low: return "checkmark.circle.fill"
-        case .moderate: return "exclamationmark.triangle.fill"
-        case .high: return "cross.case.fill"
+        case .noFlags: return "info.circle.fill"
+        case .routine: return "calendar.badge.clock"
+        case .urgent: return "exclamationmark.triangle.fill"
+        case .emergency: return "cross.case.fill"
         }
     }
-    
+
     var color: Color {
         switch self {
-        case .low: return .green
-        case .moderate: return .orange
-        case .high: return .red
+        case .noFlags: return .gray
+        case .routine: return .blue
+        case .urgent: return .orange
+        case .emergency: return .red
         }
     }
 }
@@ -56,46 +80,85 @@ class DoctorAssessmentViewModel: ObservableObject {
     @Published var currentQuestionIndex = 0
     @Published var answers: [UUID: Bool] = [:] // questionId : answered Yes
     @Published var showingResult = false
-    
+
     let questions: [AssessmentQuestion] = [
-        AssessmentQuestion(question: "Has she experienced extremely heavy bleeding (soaking through a pad or tampon in under 2 hours)?", riskScore: 3),
-        AssessmentQuestion(question: "Is she experiencing severe pain that doesn't improve with over-the-counter medication?", riskScore: 3),
-        AssessmentQuestion(question: "Has she fainted or felt extremely dizzy during her period?", riskScore: 3),
-        AssessmentQuestion(question: "Does she have a fever alongside period symptoms?", riskScore: 3),
-        AssessmentQuestion(question: "Has her period lasted more than 8 days?", riskScore: 2),
-        AssessmentQuestion(question: "Are her periods coming less than 21 days apart?", riskScore: 2),
-        AssessmentQuestion(question: "Has there been any bleeding after sexual intercourse?", riskScore: 3),
-        AssessmentQuestion(question: "Have her period patterns suddenly changed significantly?", riskScore: 2)
+        AssessmentQuestion(
+            question: "Has she experienced extremely heavy bleeding (soaking through a pad or tampon in under 2 hours)?",
+            summary: "Soaking through a pad or tampon in under 2 hours",
+            severity: .routine,
+            kind: .heavyBleeding
+        ),
+        AssessmentQuestion(
+            question: "Is she experiencing severe pain that doesn't improve with over-the-counter medication?",
+            summary: "Severe pain not helped by medication",
+            severity: .urgent
+        ),
+        AssessmentQuestion(
+            question: "Has she fainted or felt extremely dizzy during her period?",
+            summary: "Fainting or extreme dizziness",
+            severity: .urgent,
+            kind: .fainting
+        ),
+        AssessmentQuestion(
+            question: "Does she have a fever alongside period symptoms?",
+            summary: "Fever alongside period symptoms",
+            severity: .urgent
+        ),
+        AssessmentQuestion(
+            question: "Has her period lasted more than 7 days?",
+            summary: "Period lasting more than 7 days",
+            severity: .routine
+        ),
+        AssessmentQuestion(
+            question: "Are her periods coming less than 21 days apart, or more than 35 days apart?",
+            summary: "Periods less than 21 or more than 35 days apart",
+            severity: .routine
+        ),
+        AssessmentQuestion(
+            question: "Has there been any bleeding after sexual intercourse?",
+            summary: "Bleeding after sex",
+            severity: .routine
+        ),
+        AssessmentQuestion(
+            question: "Have her period patterns suddenly changed significantly?",
+            summary: "Sudden change in period pattern",
+            severity: .routine
+        )
     ]
-    
-    var totalScore: Int {
-        var score = 0
-        for question in questions {
-            if answers[question.id] == true {
-                score += question.riskScore
-            }
-        }
-        return score
+
+    /// Questions answered "Yes", in question order.
+    var reportedSymptoms: [AssessmentQuestion] {
+        questions.filter { answers[$0.id] == true }
     }
-    
+
     var riskLevel: RiskLevel {
-        let score = totalScore
-        if score >= 7 {
-            return .high
-        } else if score >= 4 {
-            return .moderate
-        } else {
-            return .low
+        let reported = reportedSymptoms
+
+        let heavyBleeding = reported.contains { $0.kind == .heavyBleeding }
+        let fainting = reported.contains { $0.kind == .fainting }
+        if heavyBleeding && fainting {
+            return .emergency
         }
+        if reported.contains(where: { $0.severity == .urgent }) {
+            return .urgent
+        }
+        if !reported.isEmpty {
+            return .routine
+        }
+        return .noFlags
     }
-    
+
     var progress: Double {
         Double(currentQuestionIndex + 1) / Double(questions.count)
     }
-    
+
+    var canGoBack: Bool {
+        currentQuestionIndex > 0
+    }
+
     func answerQuestion(answer: Bool) {
         answers[questions[currentQuestionIndex].id] = answer
-        
+
         if currentQuestionIndex < questions.count - 1 {
             withAnimation {
                 currentQuestionIndex += 1
@@ -106,7 +169,14 @@ class DoctorAssessmentViewModel: ObservableObject {
             }
         }
     }
-    
+
+    func goToPreviousQuestion() {
+        guard canGoBack else { return }
+        withAnimation {
+            currentQuestionIndex -= 1
+        }
+    }
+
     func reset() {
         withAnimation {
             hasStarted = false
@@ -298,6 +368,21 @@ struct QuestionView: View {
             .padding(.horizontal, 20)
             .padding(.top, 8)
             
+            if viewModel.canGoBack {
+                Button(action: {
+                    viewModel.goToPreviousQuestion()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Previous question")
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 8)
+                }
+            }
+            
             Spacer()
         }
         .padding(.bottom, 20)
@@ -330,6 +415,39 @@ struct ResultView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
+            
+            // What triggered this result
+            if !viewModel.reportedSymptoms.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What you reported")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    ForEach(viewModel.reportedSymptoms) { symptom in
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 6))
+                                .foregroundColor(viewModel.riskLevel.color)
+                                .padding(.top, 6)
+                            Text(symptom.summary)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    
+                    Text("Share this list with the doctor.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(viewModel.riskLevel.color.opacity(0.08))
+                .cornerRadius(8)
+                .padding(.horizontal, 20)
+            }
             
             // Disclaimer
             VStack(alignment: .leading, spacing: 8) {
